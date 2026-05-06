@@ -1,0 +1,35 @@
+{
+  "name": "deploy-helper",
+  "version": "1.0.0",
+  "description": "A deploy helper tool that uses AI to generate GMUD documents from branch comparisons.",
+  "main": "src/index.js",
+  "bin": {
+    "deploy-helper": "./bin/deploy-helper.js"
+  },
+  "scripts": {
+    "start": "node bin/deploy-helper.js",
+    "test": "jest --testPathPatterns=tests/ --coverage",
+    "test:watch": "jest --testPathPatterns=tests/ --watch"
+  },
+  "keywords": [
+    "deploy",
+    "gmud",
+    "ai",
+    "claude",
+    "copilot",
+    "git",
+    "devops"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.95.0",
+    "axios": "^1.16.0",
+    "chalk": "^4.1.2",
+    "commander": "^14.0.3",
+    "simple-git": "^3.36.0"
+  },
+  "devDependencies": {
+    "jest": "^30.3.0"
+  }
+}
