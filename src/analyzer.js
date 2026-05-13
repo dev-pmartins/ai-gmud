@@ -10,13 +10,59 @@ const { classifyFile } = require('./patterns');
  * @param {string} toBranch - Target branch (e.g. 'master')
  * @returns {Promise<AnalysisResult>}
  */
-async function analyzeBranches(repoPath, fromBranch, toBranch) {
+async function analyzeBranches(repoPath, fromBranch, toBranch, { onProgress } = {}) {
+  const progress = (step, message, status = 'done', cmd = null) => {
+    if (typeof onProgress === 'function') onProgress({ step, message, status, cmd });
+  };
+
   const git = simpleGit(repoPath);
 
-  await git.fetch();
+  progress('fetch', 'Buscando refs remotas...', 'running', 'git fetch --all');
+  try {
+    await git.fetch(['--all']);
+    progress('fetch', 'Refs remotas atualizadas', 'done', 'git fetch --all');
+  } catch {
+    progress('fetch', 'Sem remote configurado — usando refs locais', 'skip', 'git fetch --all');
+  }
 
-  const diffSummary = await git.diffSummary([`${fromBranch}...${toBranch}`]);
-  const diffOutput = await git.diff([`${fromBranch}...${toBranch}`]);
+  // Resolve each branch: prefer local name, fall back to origin/name
+  async function resolveRef(name) {
+    for (const candidate of [name, `origin/${name}`]) {
+      try {
+        await git.revparse(['--verify', candidate]);
+        return candidate;
+      } catch {
+        // try next
+      }
+    }
+    return null;
+  }
+
+  progress('resolve', `Verificando branch "${fromBranch}"...`, 'running', `git rev-parse --verify ${fromBranch}`);
+  const resolvedFrom = await resolveRef(fromBranch);
+  if (!resolvedFrom) {
+    const err = new Error(`Branch "${fromBranch}" não encontrada no repositório. Verifique o nome ou execute git fetch.`);
+    err.statusCode = 400;
+    throw err;
+  }
+  progress('resolve_from', `Branch "${fromBranch}" → ${resolvedFrom}`, 'done', `git rev-parse --verify ${resolvedFrom}`);
+
+  progress('resolve_to', `Verificando branch "${toBranch}"...`, 'running', `git rev-parse --verify ${toBranch}`);
+  const resolvedTo = await resolveRef(toBranch);
+  if (!resolvedTo) {
+    const err = new Error(`Branch "${toBranch}" não encontrada no repositório. Verifique o nome ou execute git fetch.`);
+    err.statusCode = 400;
+    throw err;
+  }
+  progress('resolve_to', `Branch "${toBranch}" → ${resolvedTo}`, 'done', `git rev-parse --verify ${resolvedTo}`);
+
+  // Use toBranch...fromBranch so "from homologacao to master" shows what
+  // homologacao has that master doesn't (i.e., changes to be deployed).
+  const diffRange = `${resolvedTo}...${resolvedFrom}`;
+  progress('diff', `Calculando diff entre branches...`, 'running', `git diff --stat ${diffRange}`);
+  const diffSummary = await git.diffSummary([diffRange]);
+  const diffOutput = await git.diff([diffRange]);
+  progress('diff', `${diffSummary.files.length} arquivo(s) alterado(s) (+${diffSummary.insertions}/−${diffSummary.deletions})`, 'done', `git diff ${diffRange}`);
 
   const result = {
     fromBranch,
@@ -35,6 +81,8 @@ async function analyzeBranches(repoPath, fromBranch, toBranch) {
     },
     diff: diffOutput,
   };
+
+  progress('classify', 'Classificando arquivos alterados...', 'running');
 
   for (const file of diffSummary.files) {
     const filePath = file.file;
@@ -58,6 +106,8 @@ async function analyzeBranches(repoPath, fromBranch, toBranch) {
       }
     }
   }
+
+  progress('classify', 'Arquivos classificados', 'done');
 
   return result;
 }

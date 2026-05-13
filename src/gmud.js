@@ -2,6 +2,7 @@
 
 const { generateWithClaude } = require('./ai/claude');
 const { generateWithCopilot } = require('./ai/copilot');
+const { buildAgentPrompt } = require('./agents');
 
 /**
  * Build the GMUD prompt from an analysis result.
@@ -94,10 +95,19 @@ function buildPrompt(analysis) {
  * @param {string} [options.provider] - 'claude' or 'copilot' (default: 'claude')
  * @param {string} [options.model] - Model override
  * @param {number} [options.maxTokens] - Max tokens
+ * @param {string} [options.agentType] - 'FrontendReviewer' | 'BackendReviewer' | 'ProductReviewer'
+ * @param {object} [options.stack] - { language, framework } from detectStack
+ * @param {Function} [options.onChunk] - Streaming callback
  * @returns {Promise<string>} Generated GMUD Markdown
  */
 async function generateGmud(analysis, options = {}) {
-  const prompt = buildPrompt(analysis);
+  let prompt;
+  if (options.agentType && options.stack) {
+    prompt = buildAgentPrompt(analysis, options.stack, options.agentType);
+  } else {
+    prompt = buildPrompt(analysis);
+  }
+
   const provider = options.provider || 'claude';
 
   switch (provider) {

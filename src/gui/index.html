@@ -1,0 +1,2021 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deploy Helper — GMUD Panel</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- diff2html -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html@3.4.47/bundles/css/diff2html.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/diff2html@3.4.47/bundles/js/diff2html-ui.min.js"></script>
+
+  <!-- marked.js -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.0/marked.min.js"></script>
+
+  <style>
+    /* ── CSS Variables ──────────────────────────────────────────── */
+    :root {
+      --bg-canvas:   #090c10;
+      --bg-surface:  #0d1117;
+      --bg-elevated: #161b22;
+      --bg-overlay:  #1c2128;
+      --bg-hover:    #21262d;
+
+      --border-muted:   #21262d;
+      --border-default: #30363d;
+      --border-subtle:  #3d444d;
+
+      --text-primary:   #e6edf3;
+      --text-secondary: #9198a1;
+      --text-muted:     #656d76;
+      --text-disabled:  #484f58;
+
+      --accent-blue:   #2f81f7;
+      --accent-green:  #3fb950;
+      --accent-yellow: #d29922;
+      --accent-red:    #f85149;
+      --accent-orange: #db6d28;
+      --accent-purple: #bc8cff;
+
+      --focus-ring: 0 0 0 3px rgba(47,129,247,0.3);
+
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-pill: 20px;
+
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.5);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.6);
+    }
+
+    /* ── Reset & Base ───────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      background: var(--bg-canvas);
+      color: var(--text-primary);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-disabled); }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .app-layout {
+      display: grid;
+      grid-template-rows: 52px 1fr;
+      grid-template-columns: 280px 1fr;
+      grid-template-areas:
+        "header header"
+        "sidebar main";
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    .app-header {
+      grid-area: header;
+      background: var(--bg-elevated);
+      border-bottom: 1px solid var(--border-default);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 12px;
+    }
+
+    .app-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text-primary);
+      text-decoration: none;
+    }
+
+    .app-logo-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #2f81f7 0%, #bc8cff 100%);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .header-divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border-default);
+    }
+
+    .header-actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────── */
+    .app-sidebar {
+      grid-area: sidebar;
+      background: var(--bg-elevated);
+      border-right: 1px solid var(--border-default);
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 20px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* ── Main ────────────────────────────────────────────────────── */
+    .app-main {
+      grid-area: main;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Section blocks ─────────────────────────────────────────── */
+    .section-block {
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      background: var(--bg-elevated);
+      overflow: hidden;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .section-body {
+      padding: 20px;
+    }
+
+    /* ── Step badge ─────────────────────────────────────────────── */
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+      background: var(--bg-hover);
+      border: 1.5px solid var(--border-subtle);
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+
+    .step-badge.active {
+      background: rgba(47,129,247,0.15);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+
+    .step-badge.done {
+      background: rgba(63,185,80,0.15);
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+    }
+
+    .step-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .step-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 400;
+      margin-left: auto;
+    }
+
+    /* ── Sidebar groups ─────────────────────────────────────────── */
+    .sidebar-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .sidebar-group-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    /* ── Form elements ──────────────────────────────────────────── */
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .field-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .field-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    .field-label.warning { color: var(--accent-yellow); }
+
+    input[type="text"],
+    input[type="password"],
+    select {
+      height: 36px;
+      padding: 0 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 13px;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    input[type="text"]:hover,
+    input[type="password"]:hover,
+    select:hover { border-color: var(--border-subtle); }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    select:focus {
+      border-color: var(--accent-blue);
+      box-shadow: var(--focus-ring);
+    }
+
+    input[type="text"]::placeholder,
+    input[type="password"]::placeholder { color: var(--text-disabled); }
+
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23656d76' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 32px;
+      cursor: pointer;
+    }
+
+    select option { background: var(--bg-elevated); }
+
+    .input-group { display: flex; gap: 6px; }
+    .input-group input,
+    .input-group select { flex: 1; }
+
+    /* ── Buttons ─────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 34px;
+      padding: 0 14px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+      white-space: nowrap;
+      text-decoration: none;
+    }
+
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+
+    .btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+
+    .btn-icon {
+      width: 34px;
+      height: 34px;
+      padding: 0;
+      flex-shrink: 0;
+    }
+
+    .btn-icon.btn-sm { width: 28px; height: 28px; }
+
+    .btn-primary { background: var(--accent-green); color: #fff; border-color: #46954a; }
+    .btn-primary:hover:not(:disabled) { background: #46954a; }
+
+    .btn-blue { background: #1a59c8; color: #fff; border-color: var(--accent-blue); }
+    .btn-blue:hover:not(:disabled) { background: var(--accent-blue); }
+
+    .btn-ghost { background: transparent; color: var(--text-secondary); border-color: var(--border-default); }
+    .btn-ghost:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-primary); border-color: var(--border-subtle); }
+
+    .btn-danger { background: transparent; color: var(--accent-red); border-color: rgba(248,81,73,0.25); }
+    .btn-danger:hover:not(:disabled) { background: rgba(248,81,73,0.1); border-color: rgba(248,81,73,0.5); }
+
+    .btn-full { width: 100%; }
+
+    /* ── Badge ───────────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+      border: 1px solid transparent;
+    }
+
+    .badge-blue   { background: rgba(47,129,247,0.12);  color: #79b8ff; border-color: rgba(47,129,247,0.25); }
+    .badge-green  { background: rgba(63,185,80,0.12);   color: #6ee7a0; border-color: rgba(63,185,80,0.25); }
+    .badge-yellow { background: rgba(210,153,34,0.12);  color: #e3b341; border-color: rgba(210,153,34,0.25); }
+    .badge-red    { background: rgba(248,81,73,0.12);   color: #ff7b72; border-color: rgba(248,81,73,0.25); }
+    .badge-orange { background: rgba(219,109,40,0.12);  color: #ffa657; border-color: rgba(219,109,40,0.25); }
+    .badge-gray   { background: rgba(145,152,161,0.1);  color: var(--text-secondary); border-color: var(--border-default); }
+
+    /* ── Agent Cards ─────────────────────────────────────────────── */
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 12px;
+    }
+
+    .agent-card {
+      border: 1.5px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: var(--bg-surface);
+    }
+
+    .agent-card:hover { border-color: var(--border-subtle); background: var(--bg-hover); }
+
+    .agent-card.selected {
+      border-color: var(--accent-blue);
+      background: rgba(47,129,247,0.06);
+      box-shadow: 0 0 0 3px rgba(47,129,247,0.1);
+    }
+
+    .agent-card-icon { font-size: 22px; margin-bottom: 8px; }
+    .agent-card-name { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+    .agent-card-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+
+    /* ── Stats Grid ──────────────────────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-md);
+      padding: 14px 16px;
+    }
+
+    .stat-label { font-size: 11px; color: var(--text-secondary); font-weight: 500; margin-bottom: 4px; }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1;
+    }
+
+    /* ── Stack info cards ─────────────────────────────────────────── */
+    .stack-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .stack-item {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-muted);
+      border-radius: var(--radius-sm);
+      padding: 8px 12px;
+    }
+
+    .stack-item-label {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    /* ── Cache pill ──────────────────────────────────────────────── */
+    .cache-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 10px;
+      background: rgba(63,185,80,0.06);
+      border: 1px solid rgba(63,185,80,0.2);
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      color: var(--accent-green);
+    }
+
+    /* ── Tabs ────────────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border-default);
+      margin-bottom: 16px;
+    }
+
+    .tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      color: var(--text-secondary);
+      transition: all 0.15s;
+      margin-bottom: -1px;
+    }
+
+    .tab:hover { color: var(--text-primary); }
+    .tab.active { color: var(--text-primary); border-bottom-color: var(--accent-blue); }
+
+    /* ── File list ───────────────────────────────────────────────── */
+    .file-list { max-height: 400px; overflow-y: auto; }
+
+    .file-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      transition: background 0.1s;
+    }
+
+    .file-row:hover { background: var(--bg-hover); }
+    .file-row .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-row .ins { color: var(--accent-green); min-width: 40px; text-align: right; }
+    .file-row .del { color: var(--accent-red); min-width: 40px; text-align: right; }
+
+    /* ── Diff ────────────────────────────────────────────────────── */
+    .diff-container {
+      background: var(--bg-surface);
+      border-radius: var(--radius-md);
+      overflow: auto;
+      max-height: 560px;
+    }
+
+    .d2h-wrapper { font-size: 12px; }
+
+    /* ── GMUD Output ─────────────────────────────────────────────── */
+    .gmud-output {
+      background: var(--bg-surface);
+      border-radius: var(--radius-md);
+      padding: 20px 24px;
+      max-height: 600px;
+      overflow-y: auto;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .gmud-output h1,
+    .gmud-output h2 {
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border-muted);
+      padding-bottom: 8px;
+      margin-top: 24px;
+      margin-bottom: 12px;
+    }
+
+    .gmud-output h1:first-child,
+    .gmud-output h2:first-child { margin-top: 0; }
+
+    .gmud-output h3 { color: #c9d1d9; margin-top: 16px; margin-bottom: 8px; }
+    .gmud-output p { margin-bottom: 12px; }
+
+    .gmud-output code {
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg-elevated);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 87%;
+      color: #ff7b72;
+    }
+
+    .gmud-output pre {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      padding: 14px;
+      border-radius: var(--radius-md);
+      overflow-x: auto;
+      margin-bottom: 12px;
+    }
+
+    .gmud-output pre code { background: none; color: var(--text-primary); padding: 0; }
+    .gmud-output ul, .gmud-output ol { padding-left: 20px; margin-bottom: 12px; }
+    .gmud-output li { margin: 4px 0; }
+    .gmud-output strong { color: var(--text-primary); }
+    .gmud-output a { color: var(--accent-blue); }
+
+    /* ── Spinner & Pulse ─────────────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 13px;
+      height: 13px;
+      border: 2px solid rgba(255,255,255,0.25);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .pulse { animation: pulse 1.8s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Analysis progress log ───────────────────────────────────── */
+    .analysis-progress {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin-top: 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .progress-step {
+      display: grid;
+      grid-template-columns: 16px 1fr auto;
+      gap: 8px;
+      align-items: baseline;
+      padding: 3px 0;
+      line-height: 1.4;
+      color: var(--text-secondary);
+      transition: color 0.2s;
+    }
+
+    .progress-step.running { color: var(--accent-blue); }
+    .progress-step.done    { color: var(--accent-green); }
+    .progress-step.skip    { color: var(--text-muted); }
+    .progress-step.error   { color: var(--accent-red); }
+
+    .progress-icon { text-align: center; }
+    .progress-icon.spinning { display: inline-block; animation: spin 0.8s linear infinite; }
+
+    .progress-cmd {
+      font-size: 10px;
+      color: var(--text-muted);
+      opacity: 0.7;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 220px;
+    }
+
+    /* ── Repo picker ─────────────────────────────────────────────── */
+    .repo-picker {
+      max-height: 192px;
+      overflow-y: auto;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+    }
+
+    .repo-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: background 0.1s;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    .repo-item:last-child { border-bottom: none; }
+    .repo-item:hover { background: var(--bg-hover); }
+
+    .repo-item.selected {
+      background: rgba(47,129,247,0.1);
+      border-left: 2px solid var(--accent-blue);
+    }
+
+    .repo-item-name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--text-primary);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .repo-item.selected .repo-item-name { color: var(--accent-blue); }
+
+    .star-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 3px;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1;
+      flex-shrink: 0;
+      transition: color 0.15s, transform 0.1s;
+    }
+
+    .star-btn:hover { color: var(--accent-yellow); transform: scale(1.15); }
+    .star-btn.active { color: var(--accent-yellow); }
+
+    /* ── Provider badge ──────────────────────────────────────────── */
+    .provider-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: var(--radius-pill);
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .provider-ok   { background: rgba(63,185,80,0.12);  color: var(--accent-green);  border: 1px solid rgba(63,185,80,0.25); }
+    .provider-off  { background: rgba(248,81,73,0.10);  color: var(--accent-red);    border: 1px solid rgba(248,81,73,0.2); }
+
+    /* ── Diff modal ──────────────────────────────────────────────── */
+    .diff-modal-body {
+      padding: 0;
+      overflow: auto;
+      flex: 1;
+      min-height: 0;
+    }
+
+    #diff-modal-container .d2h-wrapper { font-size: 12px; }
+    #diff-modal-container .d2h-file-header { background: var(--bg-elevated); border-color: var(--border-default); }
+    #diff-modal-container .d2h-code-line-ctn { background: var(--bg-surface); }
+
+    /* ── File diff button ─────────────────────────────────────────── */
+    .btn-diff {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+      background: rgba(47,129,247,0.1);
+      border: 1px solid rgba(47,129,247,0.25);
+      color: var(--accent-blue);
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+
+    .btn-diff:hover { background: rgba(47,129,247,0.22); }
+
+    /* ── Streaming area ──────────────────────────────────────────── */
+    .streaming-area {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    .streaming-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+
+    .stream-text {
+      font-size: 13px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: #c9d1d9;
+      font-family: 'JetBrains Mono', monospace;
+      line-height: 1.6;
+    }
+
+    /* ── Empty state ─────────────────────────────────────────────── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 56px 24px;
+      text-align: center;
+      color: var(--text-secondary);
+    }
+
+    .empty-icon { font-size: 36px; margin-bottom: 16px; opacity: 0.7; }
+
+    /* ── Modal ───────────────────────────────────────────────────── */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      backdrop-filter: blur(3px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-default);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      width: 640px;
+      max-width: calc(100vw - 48px);
+      max-height: calc(100vh - 80px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modal-in 0.2s ease-out;
+    }
+
+    .modal-lg { width: 740px; }
+
+    @keyframes modal-in {
+      from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-default);
+      flex-shrink: 0;
+    }
+
+    .modal-title { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+    .modal-subtitle { font-size: 12px; color: var(--text-secondary); }
+
+    .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border-muted);
+      flex-shrink: 0;
+    }
+
+    /* ── Toast ───────────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 10px 16px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 200;
+      display: none;
+      box-shadow: var(--shadow-md);
+      animation: toast-in 0.2s ease-out;
+    }
+
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .toast-success { background: #1a4731; color: #6ee7a0; border: 1px solid rgba(63,185,80,0.3); }
+    .toast-error   { background: #3a1212; color: #ff9492; border: 1px solid rgba(248,81,73,0.3); }
+
+    /* ── Utility ─────────────────────────────────────────────────── */
+    .ml-auto { margin-left: auto; }
+    .flex { display: flex; }
+    .items-center { align-items: center; }
+    .justify-between { justify-content: space-between; }
+    .gap-2 { gap: 8px; }
+    .gap-3 { gap: 12px; }
+    .w-full { width: 100%; }
+    .flex-1 { flex: 1 1 0%; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="app-layout">
+
+  <!-- ── Header ────────────────────────────────────────────────── -->
+  <header class="app-header">
+    <a class="app-logo" href="#">
+      <span class="app-logo-icon">🚀</span>
+      Deploy Helper
+    </a>
+    <span class="header-divider"></span>
+    <span class="badge badge-gray" style="font-size:11px;">GMUD Panel</span>
+    <div class="header-actions">
+      <button class="btn btn-ghost btn-sm" onclick="openCacheModal()">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 0A1.5 1.5 0 0 0 0 1.5V7a1.5 1.5 0 0 0 1.5 1.5H7A1.5 1.5 0 0 0 8.5 7V1.5A1.5 1.5 0 0 0 7 0H1.5Zm8 0A1.5 1.5 0 0 0 8 1.5V7a1.5 1.5 0 0 0 1.5 1.5H15A1.5 1.5 0 0 0 16.5 7V1.5A1.5 1.5 0 0 0 15 0H9.5Zm0 8.5A1.5 1.5 0 0 0 8 10v5.5A1.5 1.5 0 0 0 9.5 17H15a1.5 1.5 0 0 0 1.5-1.5V10A1.5 1.5 0 0 0 15 8.5H9.5Zm-8 0A1.5 1.5 0 0 0 0 10v5.5A1.5 1.5 0 0 0 1.5 17H7A1.5 1.5 0 0 0 8.5 15.5V10A1.5 1.5 0 0 0 7 8.5H1.5Z"/></svg>
+        Cache
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Sidebar ───────────────────────────────────────────────── -->
+  <aside class="app-sidebar">
+
+    <!-- Step 1: Repository -->
+    <div class="sidebar-group">
+      <div class="sidebar-group-header">
+        <span class="step-badge active" id="step1-num">1</span>
+        <span class="step-title">Repositório</span>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Caminho base</label>
+        <div class="input-group">
+          <input id="basePath" type="text" placeholder="../" value="../" />
+          <button class="btn btn-ghost btn-icon" title="Rescan" onclick="loadRepositories(true)">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Repositório</label>
+        <div id="repo-picker" class="repo-picker">
+          <div style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px;">Carregando...</div>
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label">Branch origem</label>
+          <input id="fromBranch" type="text" placeholder="homolog" value="homolog" />
+        </div>
+        <div class="field">
+          <label class="field-label">Branch destino</label>
+          <input id="toBranch" type="text" placeholder="master" value="master" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="field-label">
+          Provedor de IA
+          <span id="provider-claude-badge" class="provider-badge provider-off hidden">● claude</span>
+          <span id="provider-copilot-badge" class="provider-badge provider-off hidden">● copilot</span>
+        </label>
+        <select id="provider">
+          <option value="claude">Claude (Anthropic)</option>
+          <option value="copilot">GitHub Copilot</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label class="field-label">
+          Modelo
+          <span style="color:var(--text-muted);text-transform:none;font-weight:400;margin-left:4px;">(opcional)</span>
+        </label>
+        <input id="model" type="text" placeholder="auto" />
+      </div>
+
+      <button class="btn btn-blue btn-full" id="detect-btn" onclick="detectStack()">
+        <span id="detect-spinner" class="spinner hidden"></span>
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>
+        Detectar Stack
+      </button>
+    </div>
+
+    <!-- Step 2: Stack Detected -->
+    <div id="stack-panel" class="sidebar-group hidden">
+      <div class="sidebar-group-header">
+        <span class="step-badge done" id="step2-num">2</span>
+        <span class="step-title">Stack Detectada</span>
+      </div>
+      <div class="stack-grid">
+        <div class="stack-item">
+          <div class="stack-item-label">Linguagem</div>
+          <span id="stack-lang" class="badge badge-blue">—</span>
+        </div>
+        <div class="stack-item">
+          <div class="stack-item-label">Framework</div>
+          <span id="stack-fw" class="badge badge-blue">—</span>
+        </div>
+        <div class="stack-item" style="grid-column:span 2">
+          <div class="stack-item-label">Confiança</div>
+          <span id="stack-confidence" class="badge badge-gray">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cache pill -->
+    <div id="cache-indicator" class="hidden">
+      <div class="cache-pill">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 2A1.5 1.5 0 0 0 2 3.5v9A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 12.5 4H8.621L7.56 2.93A1.5 1.5 0 0 0 6.5 2H3.5z"/></svg>
+        Configurações em cache
+        <span id="cache-updated" style="color:var(--text-muted);margin-left:2px;"></span>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Main ──────────────────────────────────────────────────── -->
+  <main class="app-main">
+
+    <!-- Welcome state -->
+    <div id="welcome-state" class="section-block">
+      <div class="empty-state">
+        <div class="empty-icon">🚀</div>
+        <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">Bem-vindo ao Deploy Helper</div>
+        <div style="font-size:13px;color:var(--text-secondary);">
+          Selecione um repositório e branches na barra lateral,<br>
+          depois clique em <strong style="color:var(--text-primary);">Detectar Stack</strong> para começar.
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Agent Selection -->
+    <section id="agents-section" class="section-block hidden">
+      <div class="section-header">
+        <span class="step-badge active">3</span>
+        <span class="step-title">Agente Revisor</span>
+        <span class="step-subtitle">Escolha a perspectiva de revisão</span>
+      </div>
+      <div class="section-body">
+        <div class="agents-grid" id="agents-grid"></div>
+        <div style="margin-top:16px;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:12px;color:var(--text-secondary);">
+            Selecionado:
+            <span id="selected-agent-name" style="color:var(--accent-blue);font-weight:500;font-size:12px;">Nenhum</span>
+          </span>
+          <button class="btn btn-primary" onclick="runAnalysis()" id="run-btn" disabled>
+            <span id="run-spinner" class="spinner hidden"></span>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z"/></svg>
+            Executar Análise
+          </button>
+        </div>
+
+        <div id="analysis-progress" class="analysis-progress hidden"></div>
+      </div>
+    </section>
+
+    <!-- Step 4: Analysis Results -->
+    <section id="analysis-section" class="section-block hidden">
+      <div class="section-header">
+        <span class="step-badge done">4</span>
+        <span class="step-title">Resultados da Análise</span>
+        <div class="ml-auto flex gap-2">
+          <button class="btn btn-ghost btn-sm" id="view-diff-btn" onclick="openDiffModal('sensitive')" style="display:none;">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M6 7a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3A.5.5 0 0 1 6 7zm-2.5 0a.5.5 0 0 1 .5-.5h.5a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.5-.5zm2.5 3a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2.5 0a.5.5 0 0 1 .5-.5h.5a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.5-.5z"/><path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2zm10-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1z"/></svg>
+            Ver Diff Sensíveis
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="openDiffModal('full')">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M6 7a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3A.5.5 0 0 1 6 7zm-2.5 0a.5.5 0 0 1 .5-.5h.5a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.5-.5zm2.5 3a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2.5 0a.5.5 0 0 1 .5-.5h.5a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.5-.5z"/><path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2zm10-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1z"/></svg>
+            Ver Diff Completo
+          </button>
+        </div>
+      </div>
+      <div class="section-body">
+
+        <div class="stats-grid" style="margin-bottom:20px;">
+          <div class="stat-card">
+            <div class="stat-label">Arquivos</div>
+            <div class="stat-value" id="stat-files" style="color:var(--text-primary);">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label" style="color:var(--accent-green);">Inserções</div>
+            <div class="stat-value" id="stat-insertions" style="color:var(--accent-green);">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label" style="color:var(--accent-red);">Deleções</div>
+            <div class="stat-value" id="stat-deletions" style="color:var(--accent-red);">—</div>
+          </div>
+          <div class="stat-card hidden" id="stat-env-card">
+            <div class="stat-label" style="color:var(--accent-yellow);">.env Changes</div>
+            <div class="stat-value" id="stat-env" style="color:var(--accent-yellow);">—</div>
+          </div>
+          <div class="stat-card hidden" id="stat-migration-card">
+            <div class="stat-label" style="color:var(--accent-blue);">Migrations</div>
+            <div class="stat-value" id="stat-migration" style="color:var(--accent-blue);">—</div>
+          </div>
+          <div class="stat-card hidden" id="stat-critical-card">
+            <div class="stat-label" style="color:var(--accent-red);">Critical</div>
+            <div class="stat-value" id="stat-critical" style="color:var(--accent-red);">—</div>
+          </div>
+        </div>
+
+        <div class="tabs">
+          <div class="tab active" onclick="switchTab('sensitive')">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>
+            Sensíveis
+          </div>
+          <div class="tab" onclick="switchTab('all')">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 0h5.293A1 1 0 0 1 10 .293L13.707 4a1 1 0 0 1 .293.707v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2zm5.5 1.5v2a1 1 0 0 0 1 1h2L9.5 1.5z"/></svg>
+            Todos os Arquivos
+          </div>
+        </div>
+
+        <div id="tab-sensitive">
+          <div id="sensitive-empty" class="hidden" style="padding:32px;text-align:center;color:var(--text-secondary);font-size:13px;">
+            ✅ Nenhum arquivo sensível detectado
+          </div>
+          <div class="file-list" id="sensitive-files-list"></div>
+        </div>
+
+        <div id="tab-all" class="hidden">
+          <div class="file-list" id="files-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 5: GMUD Generation -->
+    <section id="gmud-section" class="section-block hidden">
+      <div class="section-header">
+        <span class="step-badge" id="step5-num">5</span>
+        <span class="step-title">Gerar GMUD</span>
+        <div class="ml-auto flex gap-2">
+          <button class="btn btn-ghost btn-sm hidden" onclick="downloadGmud()" id="download-btn">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/></svg>
+            Baixar .md
+          </button>
+          <button class="btn btn-ghost btn-sm hidden" onclick="copyGmud()" id="copy-btn">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/></svg>
+            Copiar
+          </button>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="flex items-center gap-3" style="margin-bottom:16px;">
+          <button class="btn btn-primary" onclick="generateGmud()" id="gmud-btn">
+            <span id="gmud-spinner" class="spinner hidden"></span>
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M6 12.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5z"/></svg>
+            Gerar Documento GMUD
+          </button>
+          <span id="gmud-status" style="font-size:12px;color:var(--text-secondary);"></span>
+        </div>
+
+        <div id="gmud-tabs" class="tabs hidden">
+          <div class="tab active" onclick="switchGmudTab('preview')">Preview</div>
+          <div class="tab" onclick="switchGmudTab('raw')">Markdown</div>
+        </div>
+
+        <div id="gmud-preview" class="gmud-output hidden"></div>
+
+        <div id="gmud-raw" class="hidden" style="background:var(--bg-surface);border-radius:var(--radius-md);padding:20px;max-height:600px;overflow-y:auto;">
+          <pre style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text-primary);white-space:pre-wrap;word-break:break-word;" id="gmud-raw-content"></pre>
+        </div>
+
+        <div id="gmud-streaming" class="streaming-area hidden">
+          <div class="streaming-header">
+            <span class="spinner"></span>
+            <span class="pulse">Gerando com IA...</span>
+          </div>
+          <div id="gmud-stream-text" class="stream-text"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ── Diff Modal ────────────────────────────────────────────────── -->
+<div id="diff-modal" class="modal-backdrop" onclick="closeDiffModalBackdrop(event)">
+  <div class="modal" style="max-width:95vw;width:1280px;max-height:90vh;height:90vh;display:flex;flex-direction:column;">
+    <div class="modal-header">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" style="color:var(--accent-blue);flex-shrink:0;"><path d="M6 7a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3A.5.5 0 0 1 6 7zm-2.5 0a.5.5 0 0 1 .5-.5h.5a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.5-.5zm2.5 3a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1-.5-.5zm-2.5 0a.5.5 0 0 1 .5-.5h.5a.5.5 0 0 1 0 1H4a.5.5 0 0 1-.5-.5z"/><path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2zm10-1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1z"/></svg>
+      <div>
+        <div class="modal-title" id="diff-modal-title">Diff</div>
+        <div class="modal-subtitle" id="diff-modal-subtitle"></div>
+      </div>
+      <button onclick="closeDiffModal()" class="btn btn-ghost btn-sm btn-icon ml-auto">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/></svg>
+      </button>
+    </div>
+    <div class="diff-modal-body">
+      <div id="diff-modal-container"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Cache Modal ──────────────────────────────────────────────── -->
+<div id="cache-modal" class="modal-backdrop" onclick="closeCacheModalBackdrop(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" style="color:var(--text-secondary);flex-shrink:0;"><path d="M3.5 2A1.5 1.5 0 0 0 2 3.5v9A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5v-7A1.5 1.5 0 0 0 12.5 4H8.621L7.56 2.93A1.5 1.5 0 0 0 6.5 2H3.5z"/></svg>
+      <span class="modal-title">Cache</span>
+      <button onclick="closeCacheModal()" class="btn btn-ghost btn-sm btn-icon ml-auto">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/></svg>
+      </button>
+    </div>
+    <div class="modal-body" id="cache-list"></div>
+  </div>
+</div>
+
+<!-- ── Env Modal ────────────────────────────────────────────────── -->
+<div id="env-modal" class="modal-backdrop" onclick="closeEnvModalBackdrop(event)">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" style="color:var(--accent-yellow);flex-shrink:0;"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
+      <div>
+        <div class="modal-title">Configurar .env</div>
+        <div class="modal-subtitle">Preencha as variáveis para continuar</div>
+      </div>
+      <button onclick="closeEnvModal()" class="btn btn-ghost btn-sm btn-icon ml-auto">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
+        O arquivo <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bg-hover);padding:2px 5px;border-radius:4px;">.env</code> não está totalmente configurado. Preencha os campos obrigatórios abaixo.
+      </p>
+      <div id="env-form" style="display:flex;flex-direction:column;gap:12px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeEnvModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveEnvConfig()">Salvar .env</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Toast ─────────────────────────────────────────────────────── -->
+<div id="toast" class="toast"></div>
+
+<script>
+const state = {
+  stack: null,
+  analysis: null,
+  diff: null,
+  sensitiveFiles: [],
+  recommendations: [],
+  selectedAgents: [],
+  gmudContent: '',
+  repositories: [],
+  favorites: new Set(),
+  selectedRepo: '',
+  envStatus: null,
+  preferredRepoFromQuery: null,
+};
+
+function el(id) { return document.getElementById(id); }
+
+function showToast(msg, type = 'success') {
+  const t = el('toast');
+  t.textContent = msg;
+  t.className = `toast toast-${type}`;
+  t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+function setLoading(btnId, spinnerId, loading) {
+  const btn = el(btnId);
+  const spinner = el(spinnerId);
+  if (btn) btn.disabled = loading;
+  if (spinner) spinner.classList.toggle('hidden', !loading);
+}
+
+function sanitizePath(p) {
+  return String(p || '').trim().replace(/[;&|`$()]/g, '');
+}
+
+async function fetchJson(url, options) {
+  const res = await fetch(url, options);
+  const text = await res.text();
+
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    const looksLikeHtml = /^\s*<!doctype|^\s*<html|Cannot GET\s+/i.test(text);
+    if (looksLikeHtml) {
+      throw new Error('Servidor incorreto na porta atual. Reinicie o deploy-helper GUI (ex: --port 3210).');
+    }
+    const preview = text.slice(0, 120).replace(/\s+/g, ' ');
+    throw new Error(`Resposta inválida da API (${res.status}): ${preview}`);
+  }
+
+  if (!res.ok) {
+    throw new Error(data.error || `Erro HTTP ${res.status}`);
+  }
+
+  return data;
+}
+
+function getSelectedRepoPath() {
+  return state.selectedRepo || '';
+}
+
+async function loadRepositories(rescan = false) {
+  const basePathInput = sanitizePath(el('basePath').value || '../') || '../';
+
+  try {
+    const query = new URLSearchParams({ basePath: basePathInput });
+    if (rescan) query.set('rescan', '1');
+
+    const data = await fetchJson(`/api/repositories?${query.toString()}`);
+    state.repositories = data.repositories || [];
+
+    // Load favorites from cache entries
+    const cacheData = await fetchJson('/api/cache').catch(() => ({ entries: [] }));
+    state.favorites = new Set(
+      (cacheData.entries || []).filter((e) => e.favorited).map((e) => e.repoPath)
+    );
+
+    const preferred = state.preferredRepoFromQuery || state.selectedRepo;
+    renderRepoPicker(preferred);
+
+    if (data.cached) showToast('Repositórios carregados do cache');
+    else if (rescan) showToast('Repositórios reescaneados');
+  } catch (err) {
+    showToast(err.message, 'error');
+    el('repo-picker').innerHTML = '<div style="padding:12px;text-align:center;color:var(--accent-red);font-size:12px;">Erro ao carregar repositórios</div>';
+  }
+}
+
+function renderRepoPicker(preferred) {
+  const picker = el('repo-picker');
+  picker.innerHTML = '';
+
+  if (state.repositories.length === 0) {
+    picker.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-muted);font-size:12px;">Nenhum repositório encontrado</div>';
+    return;
+  }
+
+  // Sort: favorites first, then alphabetically
+  const sorted = [...state.repositories].sort((a, b) => {
+    const af = state.favorites.has(a) ? 0 : 1;
+    const bf = state.favorites.has(b) ? 0 : 1;
+    if (af !== bf) return af - bf;
+    return a.localeCompare(b);
+  });
+
+  let selected = preferred && state.repositories.includes(preferred)
+    ? preferred
+    : sorted[0];
+
+  for (const repoPath of sorted) {
+    const name = repoPath.split('/').pop();
+    const isFav = state.favorites.has(repoPath);
+    const div = document.createElement('div');
+    div.className = 'repo-item' + (repoPath === selected ? ' selected' : '');
+    div.dataset.path = repoPath;
+    div.innerHTML = `
+      <button class="star-btn${isFav ? ' active' : ''}" title="${isFav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}" onclick="toggleFavorite('${escapeHtml(repoPath)}', event)">${isFav ? '★' : '☆'}</button>
+      <span class="repo-item-name" title="${escapeHtml(repoPath)}">${escapeHtml(name)}</span>
+    `;
+    div.addEventListener('click', (e) => {
+      if (e.target.classList.contains('star-btn')) return;
+      selectRepo(repoPath);
+    });
+    picker.appendChild(div);
+  }
+
+  selectRepo(selected, false);
+}
+
+function selectRepo(repoPath, scroll = true) {
+  state.selectedRepo = repoPath;
+  el('repo-picker').querySelectorAll('.repo-item').forEach((item) => {
+    item.classList.toggle('selected', item.dataset.path === repoPath);
+  });
+  if (scroll) {
+    const selected = el('repo-picker').querySelector('.repo-item.selected');
+    if (selected) selected.scrollIntoView({ block: 'nearest' });
+  }
+}
+
+async function toggleFavorite(repoPath, e) {
+  e.stopPropagation();
+  const isFav = state.favorites.has(repoPath);
+  const newVal = !isFav;
+  try {
+    await fetchJson('/api/favorite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repoPath, favorited: newVal }),
+    });
+    if (newVal) state.favorites.add(repoPath);
+    else state.favorites.delete(repoPath);
+    const currentSelected = state.selectedRepo;
+    renderRepoPicker(currentSelected);
+    showToast(newVal ? '⭐ Adicionado aos favoritos' : 'Removido dos favoritos');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function detectStack() {
+  const repoPath = getSelectedRepoPath();
+  if (!repoPath) { showToast('Selecione um repositório', 'error'); return; }
+
+  setLoading('detect-btn', 'detect-spinner', true);
+
+  try {
+    const data = await fetchJson('/api/detect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repoPath }),
+    });
+
+    state.stack = data.stack;
+    renderStackPanel(data.stack);
+    renderAgentsSection(data.stack);
+    el('stack-panel').classList.remove('hidden');
+    el('agents-section').classList.remove('hidden');
+    el('welcome-state').classList.add('hidden');
+    showToast('Stack detectada');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    setLoading('detect-btn', 'detect-spinner', false);
+  }
+}
+
+function renderStackPanel(stack) {
+  const confColor = { high: 'badge-green', medium: 'badge-yellow', low: 'badge-orange' };
+  el('stack-lang').textContent = stack.language;
+  el('stack-lang').className = 'badge badge-blue';
+  el('stack-fw').textContent = stack.framework;
+  el('stack-fw').className = 'badge badge-blue';
+  el('stack-confidence').textContent = stack.confidence;
+  el('stack-confidence').className = `badge ${confColor[stack.confidence] || 'badge-gray'}`;
+}
+
+const AGENT_META = {
+  FrontendReviewer: { icon: '🎨', desc: 'UI/UX, acessibilidade, segurança client-side e estilização' },
+  BackendReviewer:  { icon: '⚙️', desc: 'APIs, banco de dados, migrations, infraestrutura e segurança' },
+  ProductReviewer:  { icon: '📋', desc: 'Impacto no negócio, comunicação e risco de produto' },
+};
+
+function renderAgentsSection() {
+  const grid = el('agents-grid');
+  grid.innerHTML = '';
+
+  ['FrontendReviewer', 'BackendReviewer', 'ProductReviewer'].forEach((type) => {
+    const meta = AGENT_META[type];
+    const div = document.createElement('div');
+    div.className = 'agent-card';
+    div.id = `agent-${type}`;
+    div.innerHTML = `
+      <div class="agent-card-icon">${meta.icon}</div>
+      <div class="agent-card-name">${type}</div>
+      <div class="agent-card-desc">${meta.desc}</div>
+    `;
+    div.onclick = () => selectAgent(type);
+    grid.appendChild(div);
+  });
+
+  if (state.recommendations.length > 0) {
+    state.selectedAgents = [];
+    selectAgent(state.recommendations[0].type);
+  } else {
+    state.selectedAgents = [];
+    el('selected-agent-name').textContent = 'Nenhum';
+    el('run-btn').disabled = true;
+  }
+}
+
+function selectAgent(type) {
+  const idx = state.selectedAgents.indexOf(type);
+  if (idx === -1) {
+    state.selectedAgents.push(type);
+  } else {
+    state.selectedAgents.splice(idx, 1);
+  }
+  const card = el(`agent-${type}`);
+  if (card) card.classList.toggle('selected', state.selectedAgents.includes(type));
+  const names = state.selectedAgents;
+  el('selected-agent-name').textContent = names.length > 0 ? names.join(', ') : 'Nenhum';
+  el('run-btn').disabled = names.length === 0;
+}
+
+async function ensureEnvConfigured(repoPath) {
+  const data = await fetchJson('/api/env/status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ repoPath }),
+  });
+
+  state.envStatus = data;
+  if (data.configured) return true;
+
+  openEnvModal(data);
+  return false;
+}
+
+function openEnvModal(status) {
+  const form = el('env-form');
+  form.innerHTML = '';
+
+  const entries = (status.entries || []).length > 0
+    ? status.entries
+    : [{ key: 'APP_ENV', defaultValue: 'production', currentValue: '' }];
+
+  for (const entry of entries) {
+    const missing = (status.missingKeys || []).includes(entry.key) || !entry.currentValue;
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:5px;';
+    wrapper.innerHTML = `
+      <label style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.3px;color:${missing ? 'var(--accent-yellow)' : 'var(--text-secondary)'};">${entry.key}${missing ? ' *' : ''}</label>
+      <input class="env-input" data-env-key="${entry.key}" type="text"
+        value="${escapeHtml(entry.currentValue || entry.defaultValue || '')}"
+        placeholder="${escapeHtml(entry.defaultValue || '')}" />
+    `;
+    form.appendChild(wrapper);
+  }
+
+  el('env-modal').classList.add('open');
+}
+
+function closeEnvModal() { el('env-modal').classList.remove('open'); }
+function closeEnvModalBackdrop(e) { if (e.target === el('env-modal')) closeEnvModal(); }
+
+async function saveEnvConfig() {
+  const repoPath = getSelectedRepoPath();
+  if (!repoPath) { showToast('Selecione um repositório primeiro', 'error'); return; }
+
+  const values = {};
+  document.querySelectorAll('.env-input').forEach((input) => {
+    values[input.getAttribute('data-env-key')] = input.value;
+  });
+
+  await fetchJson('/api/env/configure', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ repoPath, values }),
+  });
+
+  closeEnvModal();
+  showToast('.env configurado com sucesso');
+}
+
+// ── Analysis progress log ──────────────────────────────────────────────────
+const progressLog = {
+  _steps: {},
+  show() { el('analysis-progress').classList.remove('hidden'); },
+  hide() { el('analysis-progress').classList.add('hidden'); },
+  clear() { el('analysis-progress').innerHTML = ''; this._steps = {}; },
+  update(step, message, status, cmd) {
+    const icons = { running: '⟳', done: '✓', skip: '—', error: '✗' };
+    const icon = icons[status] || '·';
+    const spinClass = status === 'running' ? ' spinning' : '';
+
+    if (this._steps[step]) {
+      const el_ = this._steps[step];
+      el_.className = `progress-step ${status}`;
+      el_.querySelector('.progress-icon').className = `progress-icon${spinClass}`;
+      el_.querySelector('.progress-icon').textContent = icon;
+      el_.querySelector('.progress-msg').textContent = message;
+      if (cmd) el_.querySelector('.progress-cmd').textContent = cmd;
+    } else {
+      const div = document.createElement('div');
+      div.className = `progress-step ${status}`;
+      div.innerHTML = `
+        <span class="progress-icon${spinClass}">${icon}</span>
+        <span class="progress-msg">${escapeHtml(message)}</span>
+        <span class="progress-cmd">${cmd ? escapeHtml(cmd) : ''}</span>
+      `;
+      this._steps[step] = div;
+      el('analysis-progress').appendChild(div);
+    }
+  },
+};
+
+async function runAnalysis() {
+  const repoPath = getSelectedRepoPath();
+  const from = el('fromBranch').value.trim() || 'homolog';
+  const to = el('toBranch').value.trim() || 'master';
+
+  if (!repoPath) { showToast('Selecione um repositório', 'error'); return; }
+  if (state.selectedAgents.length === 0) { showToast('Selecione ao menos um agente', 'error'); return; }
+
+  setLoading('run-btn', 'run-spinner', true);
+  progressLog.clear();
+  progressLog.show();
+
+  try {
+    const envOk = await ensureEnvConfigured(repoPath);
+    if (!envOk) { showToast('Configure o .env para continuar', 'error'); return; }
+
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repoPath, from, to }),
+    });
+
+    // Pre-SSE validation error (JSON response)
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      const body = await res.json();
+      throw new Error(body.error || `Erro ${res.status}`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let currentEvent = '';
+    let resultData = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEvent = line.slice(7).trim();
+        } else if (line.startsWith('data: ')) {
+          try {
+            const payload = JSON.parse(line.slice(6));
+            if (currentEvent === 'progress') {
+              progressLog.update(payload.step, payload.message, payload.status, payload.cmd);
+            } else if (currentEvent === 'done') {
+              resultData = payload;
+            } else if (currentEvent === 'error') {
+              throw new Error(payload.error);
+            }
+          } catch (e) {
+            if (e.message && !e.message.includes('JSON')) throw e;
+          }
+        } else if (line === '') {
+          currentEvent = '';
+        }
+      }
+    }
+
+    if (!resultData) throw new Error('Análise não retornou resultado.');
+
+    state.analysis = resultData.analysis;
+    state.diff = resultData.diff;
+    state.sensitiveFiles = resultData.sensitiveFiles || [];
+    state.recommendations = resultData.recommendations || [];
+
+    if (resultData.stack) { state.stack = resultData.stack; renderStackPanel(resultData.stack); }
+
+    renderAnalysisSection(resultData);
+    el('analysis-section').classList.remove('hidden');
+    el('gmud-section').classList.remove('hidden');
+    el('analysis-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showToast('Análise concluída');
+  } catch (err) {
+    progressLog.update('error', err.message, 'error');
+    showToast(err.message, 'error');
+  } finally {
+    setLoading('run-btn', 'run-spinner', false);
+  }
+}
+
+function renderAnalysisSection(data) {
+  const { analysis, diff, sensitiveFiles } = data;
+
+  // Reset stat cards from previous run
+  ['stat-env-card', 'stat-migration-card', 'stat-critical-card'].forEach(
+    (id) => el(id).classList.add('hidden')
+  );
+
+  el('stat-files').textContent = analysis.totalFiles;
+  el('stat-insertions').textContent = `+${analysis.insertions}`;
+  el('stat-deletions').textContent = `-${analysis.deletions}`;
+
+  if (analysis.categories.env.length > 0) {
+    el('stat-env').textContent = analysis.categories.env.length;
+    el('stat-env-card').classList.remove('hidden');
+  }
+  if (analysis.categories.migration.length > 0) {
+    el('stat-migration').textContent = analysis.categories.migration.length;
+    el('stat-migration-card').classList.remove('hidden');
+  }
+  const critCount = analysis.categories.critical.length + analysis.categories.vulnerability.length;
+  if (critCount > 0) {
+    el('stat-critical').textContent = critCount;
+    el('stat-critical-card').classList.remove('hidden');
+  }
+
+  renderSensitiveList(sensitiveFiles, analysis.categories);
+  renderFilesList(analysis.files, analysis.categories);
+
+  // Show/hide "Ver Diff Sensíveis" button only when there are sensitive files
+  const viewDiffBtn = el('view-diff-btn');
+  if (viewDiffBtn) viewDiffBtn.style.display = sensitiveFiles.length > 0 ? '' : 'none';
+}
+
+function renderSensitiveList(sensitiveFiles, categories) {
+  const empty = el('sensitive-empty');
+  const list = el('sensitive-files-list');
+  list.innerHTML = '';
+
+  if (!sensitiveFiles || sensitiveFiles.length === 0) {
+    empty.classList.remove('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+
+  sensitiveFiles.forEach((filePath) => {
+    const row = document.createElement('div');
+    row.className = 'file-row';
+    row.style.cursor = 'pointer';
+    row.innerHTML = `
+      <span style="font-size:13px;flex-shrink:0;">⚠️</span>
+      <span class="file-name" style="color:var(--accent-yellow);">${escapeHtml(filePath)}</span>
+      <span style="display:flex;gap:4px;">${getCategoryBadges(filePath, categories)}</span>
+      <button class="btn-diff ml-auto">Ver Diff →</button>
+    `;
+    row.querySelector('.btn-diff').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDiffModalForFile(filePath);
+    });
+    list.appendChild(row);
+  });
+}
+
+function extractFilesFromDiff(diff, fileNames) {
+  if (!diff || !fileNames || fileNames.length === 0) return '';
+  const blocks = diff.split(/(?=^diff --git)/m);
+  return blocks.filter((b) => fileNames.some((f) => b.includes(`a/${f}`) || b.includes(`b/${f}`))).join('');
+}
+
+function renderDiff(containerId, diffContent) {
+  if (!diffContent || !diffContent.trim()) {
+    el(containerId).innerHTML = '<div style="padding:32px;color:var(--text-secondary);font-size:13px;text-align:center;">Nenhum diff disponível</div>';
+    return;
+  }
+  try {
+    const ui = new Diff2HtmlUI(el(containerId), diffContent, {
+      drawFileList: true,
+      matching: 'lines',
+      outputFormat: 'side-by-side',
+      highlight: true,
+      renderNothingWhenEmpty: false,
+      colorScheme: 'dark',
+    });
+    ui.draw();
+    ui.highlightCode();
+  } catch {
+    el(containerId).innerHTML = `<pre style="padding:16px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text-primary);white-space:pre-wrap;">${escapeHtml(diffContent.slice(0, 20000))}</pre>`;
+  }
+}
+
+function renderFilesList(files, categories) {
+  const list = el('files-list');
+  list.innerHTML = '';
+
+  const sensitiveSet = new Set([
+    ...categories.env, ...categories.critical,
+    ...categories.vulnerability, ...categories.migration, ...categories.seeder,
+  ]);
+
+  files.forEach((f) => {
+    const isSensitive = sensitiveSet.has(f.file);
+    const row = document.createElement('div');
+    row.className = 'file-row';
+    row.innerHTML = `
+      <span style="font-size:13px;flex-shrink:0;">${isSensitive ? '⚠️' : '📄'}</span>
+      <span class="file-name" style="color:${isSensitive ? 'var(--accent-yellow)' : 'var(--text-primary)'}">${escapeHtml(f.file)}</span>
+      <span class="ins">+${f.insertions}</span>
+      <span class="del">-${f.deletions}</span>
+      <span style="display:flex;gap:4px;">${getCategoryBadges(f.file, categories)}</span>
+      <button class="btn-diff">Ver Diff →</button>
+    `;
+    row.querySelector('.btn-diff').addEventListener('click', (e) => {
+      e.stopPropagation();
+      openDiffModalForFile(f.file);
+    });
+    list.appendChild(row);
+  });
+}
+
+function getCategoryBadges(filePath, categories) {
+  const badges = [];
+  if (categories.env.includes(filePath))            badges.push('<span class="badge badge-yellow">env</span>');
+  if (categories.migration.includes(filePath))      badges.push('<span class="badge badge-blue">migration</span>');
+  if (categories.seeder.includes(filePath))         badges.push('<span class="badge badge-green">seeder</span>');
+  if (categories.vulnerability.includes(filePath))  badges.push('<span class="badge badge-orange">vuln</span>');
+  if (categories.critical.includes(filePath))       badges.push('<span class="badge badge-red">critical</span>');
+  return badges.join('');
+}
+
+function switchTab(name) {
+  ['sensitive', 'all'].forEach((t) => {
+    el(`tab-${t}`).classList.toggle('hidden', t !== name);
+  });
+  document.querySelectorAll('#analysis-section .tab').forEach((t, i) => {
+    t.classList.toggle('active', ['sensitive', 'all'][i] === name);
+  });
+}
+
+// ── Diff modal ────────────────────────────────────────────────────────────
+function openDiffModal(scope) {
+  if (!state.diff) return;
+  let diffContent, title, subtitle;
+
+  if (scope === 'full') {
+    diffContent = state.diff;
+    title = 'Diff Completo';
+    subtitle = `${state.analysis?.totalFiles || 0} arquivo(s) alterado(s)`;
+  } else if (scope === 'sensitive') {
+    diffContent = extractFilesFromDiff(state.diff, state.sensitiveFiles) || state.diff;
+    title = 'Diff — Arquivos Sensíveis';
+    subtitle = `${state.sensitiveFiles.length} arquivo(s) sensível(is)`;
+  } else {
+    diffContent = scope; // raw diff string passed directly
+    title = 'Diff';
+    subtitle = '';
+  }
+
+  el('diff-modal-title').textContent = title;
+  el('diff-modal-subtitle').textContent = subtitle;
+
+  const container = el('diff-modal-container');
+  container.innerHTML = '';
+
+  if (!diffContent || !diffContent.trim()) {
+    container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-secondary);">Nenhum diff disponível</div>';
+  } else {
+    try {
+      const ui = new Diff2HtmlUI(container, diffContent, {
+        drawFileList: true,
+        matching: 'lines',
+        outputFormat: 'side-by-side',
+        highlight: true,
+        renderNothingWhenEmpty: false,
+        colorScheme: 'dark',
+      });
+      ui.draw();
+      ui.highlightCode();
+    } catch {
+      container.innerHTML = `<pre style="padding:16px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text-primary);white-space:pre-wrap;">${escapeHtml(diffContent.slice(0, 40000))}</pre>`;
+    }
+  }
+
+  el('diff-modal').classList.add('open');
+}
+
+function openDiffModalForFile(filePath) {
+  const diff = extractFilesFromDiff(state.diff, [filePath]);
+  const container = el('diff-modal-container');
+  container.innerHTML = '';
+  el('diff-modal-title').textContent = filePath.split('/').pop();
+  el('diff-modal-subtitle').textContent = filePath;
+
+  if (!diff || !diff.trim()) {
+    container.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-secondary);">Nenhum diff disponível para este arquivo</div>';
+  } else {
+    try {
+      const ui = new Diff2HtmlUI(container, diff, {
+        drawFileList: false,
+        matching: 'lines',
+        outputFormat: 'side-by-side',
+        highlight: true,
+        colorScheme: 'dark',
+      });
+      ui.draw();
+      ui.highlightCode();
+    } catch {
+      container.innerHTML = `<pre style="padding:16px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text-primary);white-space:pre-wrap;">${escapeHtml(diff.slice(0, 40000))}</pre>`;
+    }
+  }
+
+  el('diff-modal').classList.add('open');
+}
+
+function closeDiffModal() { el('diff-modal').classList.remove('open'); }
+function closeDiffModalBackdrop(e) { if (e.target === el('diff-modal')) closeDiffModal(); }
+
+// ── Provider availability ─────────────────────────────────────────────────
+async function fetchProviders() {
+  try {
+    const data = await fetchJson('/api/providers');
+    const clBadge = el('provider-claude-badge');
+    const coBadge = el('provider-copilot-badge');
+
+    clBadge.classList.remove('hidden');
+    coBadge.classList.remove('hidden');
+    clBadge.className = `provider-badge ${data.claude ? 'provider-ok' : 'provider-off'}`;
+    coBadge.className = `provider-badge ${data.copilot ? 'provider-ok' : 'provider-off'}`;
+
+    // Show whether claude is via API key or local CLI
+    const clLabel = data.claudeApi ? 'claude (api)' : data.claudeCli ? 'claude (cli)' : 'claude';
+    clBadge.textContent = `${data.claude ? '●' : '○'} ${clLabel}`;
+    coBadge.textContent = `${data.copilot ? '●' : '○'} copilot`;
+
+    // Auto-select recommended provider
+    if (data.recommended) el('provider').value = data.recommended;
+  } catch { /* non-critical */ }
+}
+
+function switchGmudTab(name) {
+  el('gmud-preview').classList.toggle('hidden', name !== 'preview');
+  el('gmud-raw').classList.toggle('hidden', name !== 'raw');
+  document.querySelectorAll('#gmud-tabs .tab').forEach((t, i) => {
+    t.classList.toggle('active', ['preview', 'raw'][i] === name);
+  });
+}
+
+async function generateGmud() {
+  if (!state.analysis) { showToast('Execute a análise primeiro', 'error'); return; }
+  if (state.selectedAgents.length === 0) { showToast('Selecione ao menos um agente', 'error'); return; }
+
+  setLoading('gmud-btn', 'gmud-spinner', true);
+  el('gmud-status').textContent = 'Conectando à IA...';
+  el('gmud-streaming').classList.remove('hidden');
+  el('gmud-preview').classList.add('hidden');
+  el('gmud-raw').classList.add('hidden');
+  el('gmud-tabs').classList.add('hidden');
+  el('download-btn').classList.add('hidden');
+  el('copy-btn').classList.add('hidden');
+  el('gmud-stream-text').textContent = '';
+  el('step5-num').className = 'step-badge active';
+  state.gmudContent = '';
+  el('gmud-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  try {
+    const provider = el('provider').value;
+    const model = el('model').value.trim() || undefined;
+
+    const res = await fetch('/api/gmud/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        analysis: { ...state.analysis, diff: state.diff },
+        provider, model,
+        agentType: state.selectedAgents.length === 1 ? state.selectedAgents[0] : state.selectedAgents,
+        stack: state.stack,
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Falha ao iniciar geração do GMUD');
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    el('gmud-status').textContent = 'Gerando...';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+
+      for (const line of lines) {
+        if (line.startsWith('event: chunk')) continue;
+        if (line.startsWith('data: ')) {
+          try {
+            const payload = JSON.parse(line.slice(6));
+            if (payload.text) {
+              state.gmudContent += payload.text;
+              el('gmud-stream-text').textContent = state.gmudContent;
+              const sa = el('gmud-streaming');
+              sa.scrollTop = sa.scrollHeight;
+            }
+            if (payload.content) { state.gmudContent = payload.content; }
+            if (payload.error) { throw new Error(payload.error); }
+          } catch (e) {
+            if (e.message && !e.message.includes('JSON')) throw e;
+          }
+        }
+      }
+    }
+
+    el('gmud-streaming').classList.add('hidden');
+    el('gmud-tabs').classList.remove('hidden');
+    el('gmud-preview').classList.remove('hidden');
+    el('gmud-preview').innerHTML = marked.parse(state.gmudContent);
+    el('gmud-raw-content').textContent = state.gmudContent;
+    el('download-btn').classList.remove('hidden');
+    el('copy-btn').classList.remove('hidden');
+    el('gmud-status').textContent = 'Gerado com sucesso';
+    el('step5-num').className = 'step-badge done';
+    showToast('GMUD gerado');
+    el('gmud-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch (err) {
+    el('gmud-streaming').classList.add('hidden');
+    el('gmud-status').textContent = `Erro: ${err.message}`;
+    showToast(err.message, 'error');
+  } finally {
+    setLoading('gmud-btn', 'gmud-spinner', false);
+  }
+}
+
+function downloadGmud() {
+  if (!state.gmudContent) return;
+  const blob = new Blob([state.gmudContent], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const repo = getSelectedRepoPath().split('/').pop() || 'gmud';
+  a.href = url;
+  a.download = `gmud-${repo}-${new Date().toISOString().slice(0, 10)}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Download iniciado');
+}
+
+function copyGmud() {
+  if (!state.gmudContent) return;
+  navigator.clipboard.writeText(state.gmudContent).then(() => showToast('Copiado para a área de transferência'));
+}
+
+async function openCacheModal() {
+  el('cache-modal').classList.add('open');
+  const data = await fetchJson('/api/cache');
+  const list = el('cache-list');
+
+  if (!data.entries || data.entries.length === 0) {
+    list.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-secondary);font-size:13px;">Nenhum repositório em cache</div>';
+    return;
+  }
+
+  list.innerHTML = data.entries.map((e) => `
+    <div style="border:1px solid var(--border-default);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:10px;background:var(--bg-surface);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <code style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-primary);">${escapeHtml(e.repoPath || '—')}</code>
+        <button class="btn btn-danger btn-sm" onclick="clearCache('${escapeHtml(e.repoPath)}')">Limpar</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        ${e.stack ? `<span class="badge badge-blue">${e.stack.language}/${e.stack.framework}</span>` : ''}
+        <span class="badge badge-gray" style="font-size:11px;">${e.updatedAt ? new Date(e.updatedAt).toLocaleString('pt-BR') : '—'}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function closeCacheModal() { el('cache-modal').classList.remove('open'); }
+function closeCacheModalBackdrop(e) { if (e.target === el('cache-modal')) closeCacheModal(); }
+
+async function clearCache(repoPath) {
+  await fetchJson('/api/cache', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ repoPath }),
+  });
+  showToast('Cache limpo');
+  openCacheModal();
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, (m) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[m]));
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('repo')) {
+    state.preferredRepoFromQuery = decodeURIComponent(params.get('repo'));
+  }
+  await Promise.all([loadRepositories(false), fetchProviders()]);
+});
+</script>
+</body>
+</html>

@@ -21,6 +21,45 @@ async function generateWithCopilot(prompt, options = {}) {
   const model = options.model || 'gpt-4o';
   const maxTokens = options.maxTokens || 4096;
 
+  if (typeof options.onChunk === 'function') {
+    const response = await axios.post(
+      `${GITHUB_MODELS_API}/chat/completions`,
+      { model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, stream: true },
+      {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        responseType: 'stream',
+      }
+    );
+
+    return new Promise((resolve, reject) => {
+      let fullText = '';
+      let buffer = '';
+
+      response.data.on('data', (chunk) => {
+        buffer += chunk.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // keep incomplete line
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = line.slice(6).trim();
+          if (data === '[DONE]') continue;
+          try {
+            const parsed = JSON.parse(data);
+            const delta = parsed.choices?.[0]?.delta?.content;
+            if (delta) {
+              fullText += delta;
+              options.onChunk(delta);
+            }
+          } catch { /* skip malformed chunks */ }
+        }
+      });
+
+      response.data.on('end', () => resolve(fullText));
+      response.data.on('error', reject);
+    });
+  }
+
   const response = await axios.post(
     `${GITHUB_MODELS_API}/chat/completions`,
     {

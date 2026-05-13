@@ -7,6 +7,7 @@ const fs = require('fs');
 const chalk = require('chalk');
 const { analyzeBranches } = require('../src/analyzer');
 const { generateGmud } = require('../src/gmud');
+const { detectStack } = require('../src/detector');
 
 const program = new Command();
 
@@ -130,6 +131,46 @@ program
       printCategory('📄 Other Files', analysis.categories.other, chalk.gray);
     } catch (err) {
       console.error(chalk.red(`❌ Error: ${err.message}`));
+      process.exit(1);
+    }
+  });
+
+program
+  .command('gui')
+  .description('Launch the web-based GMUD management panel')
+  .option('-p, --port <number>', 'Port for the web server', '3131')
+  .option('-r, --repo <path>', 'Pre-fill repository path in the GUI', '')
+  .option('--no-open', 'Do not open the browser automatically')
+  .action(async (options) => {
+    const { startServer } = require('../src/server');
+    const port = parseInt(options.port, 10) || 3131;
+
+    console.log(chalk.blue('🚀 deploy-helper — GMUD Panel'));
+    console.log('');
+
+    try {
+      const server = await startServer(port);
+      const url = `http://localhost:${port}${options.repo ? `?repo=${encodeURIComponent(path.resolve(options.repo))}` : ''}`;
+
+      console.log(chalk.green(`✅ GUI server running at ${chalk.bold(url)}`));
+      console.log(chalk.gray('   Press Ctrl+C to stop'));
+      console.log('');
+
+      if (options.open !== false) {
+        try {
+          const open = require('open');
+          await open(url);
+        } catch { /* ignore if open fails */ }
+      }
+
+      process.on('SIGINT', () => {
+        server.close(() => {
+          console.log(chalk.gray('\n👋 Server stopped'));
+          process.exit(0);
+        });
+      });
+    } catch (err) {
+      console.error(chalk.red(`❌ Failed to start GUI: ${err.message}`));
       process.exit(1);
     }
   });

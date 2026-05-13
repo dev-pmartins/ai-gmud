@@ -21,6 +21,23 @@ async function generateWithClaude(prompt, options = {}) {
   const model = options.model || 'claude-3-5-sonnet-20241022';
   const maxTokens = options.maxTokens || 4096;
 
+  if (typeof options.onChunk === 'function') {
+    const stream = client.messages.stream({
+      model,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    let fullText = '';
+    stream.on('text', (text) => {
+      fullText += text;
+      options.onChunk(text);
+    });
+
+    await stream.finalMessage();
+    return fullText;
+  }
+
   const message = await client.messages.create({
     model,
     max_tokens: maxTokens,
