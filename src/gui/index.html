@@ -1155,32 +1155,6 @@
   </div>
 </div>
 
-<!-- ── Env Modal ────────────────────────────────────────────────── -->
-<div id="env-modal" class="modal-backdrop" onclick="closeEnvModalBackdrop(event)">
-  <div class="modal modal-lg">
-    <div class="modal-header">
-      <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" style="color:var(--accent-yellow);flex-shrink:0;"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>
-      <div>
-        <div class="modal-title">Configurar .env</div>
-        <div class="modal-subtitle">Preencha as variáveis para continuar</div>
-      </div>
-      <button onclick="closeEnvModal()" class="btn btn-ghost btn-sm btn-icon ml-auto">
-        <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/></svg>
-      </button>
-    </div>
-    <div class="modal-body">
-      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">
-        O arquivo <code style="font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--bg-hover);padding:2px 5px;border-radius:4px;">.env</code> não está totalmente configurado. Preencha os campos obrigatórios abaixo.
-      </p>
-      <div id="env-form" style="display:flex;flex-direction:column;gap:12px;"></div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeEnvModal()">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveEnvConfig()">Salvar .env</button>
-    </div>
-  </div>
-</div>
-
 <!-- ── Toast ─────────────────────────────────────────────────────── -->
 <div id="toast" class="toast"></div>
 
@@ -1432,65 +1406,7 @@ function selectAgent(type) {
   el('run-btn').disabled = names.length === 0;
 }
 
-async function ensureEnvConfigured(repoPath) {
-  const data = await fetchJson('/api/env/status', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ repoPath }),
-  });
 
-  state.envStatus = data;
-  if (data.configured) return true;
-
-  openEnvModal(data);
-  return false;
-}
-
-function openEnvModal(status) {
-  const form = el('env-form');
-  form.innerHTML = '';
-
-  const entries = (status.entries || []).length > 0
-    ? status.entries
-    : [{ key: 'APP_ENV', defaultValue: 'production', currentValue: '' }];
-
-  for (const entry of entries) {
-    const missing = (status.missingKeys || []).includes(entry.key) || !entry.currentValue;
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'display:flex;flex-direction:column;gap:5px;';
-    wrapper.innerHTML = `
-      <label style="font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.3px;color:${missing ? 'var(--accent-yellow)' : 'var(--text-secondary)'};">${entry.key}${missing ? ' *' : ''}</label>
-      <input class="env-input" data-env-key="${entry.key}" type="text"
-        value="${escapeHtml(entry.currentValue || entry.defaultValue || '')}"
-        placeholder="${escapeHtml(entry.defaultValue || '')}" />
-    `;
-    form.appendChild(wrapper);
-  }
-
-  el('env-modal').classList.add('open');
-}
-
-function closeEnvModal() { el('env-modal').classList.remove('open'); }
-function closeEnvModalBackdrop(e) { if (e.target === el('env-modal')) closeEnvModal(); }
-
-async function saveEnvConfig() {
-  const repoPath = getSelectedRepoPath();
-  if (!repoPath) { showToast('Selecione um repositório primeiro', 'error'); return; }
-
-  const values = {};
-  document.querySelectorAll('.env-input').forEach((input) => {
-    values[input.getAttribute('data-env-key')] = input.value;
-  });
-
-  await fetchJson('/api/env/configure', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ repoPath, values }),
-  });
-
-  closeEnvModal();
-  showToast('.env configurado com sucesso');
-}
 
 // ── Analysis progress log ──────────────────────────────────────────────────
 const progressLog = {
@@ -1537,9 +1453,6 @@ async function runAnalysis() {
   progressLog.show();
 
   try {
-    const envOk = await ensureEnvConfigured(repoPath);
-    if (!envOk) { showToast('Configure o .env para continuar', 'error'); return; }
-
     const res = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

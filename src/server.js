@@ -242,42 +242,6 @@ app.post('/api/env/status', (req, res) => {
 });
 
 /**
- * POST /api/env/configure
- * Create/update .env using provided values and .env.example as key source.
- */
-app.post('/api/env/configure', (req, res) => {
-  try {
-    const repoPath = sanitizeRepoPath(req.body.repoPath);
-    const values = req.body.values && typeof req.body.values === 'object' ? req.body.values : {};
-
-    const envPath = path.join(repoPath, '.env');
-    const envExamplePath = path.join(repoPath, '.env.example');
-
-    const envExists = fs.existsSync(envPath);
-    const hasExample = fs.existsSync(envExamplePath);
-
-    const currentMap = envExists ? parseEnvMap(fs.readFileSync(envPath, 'utf-8')) : {};
-    const templateEntries = hasExample ? parseEnvTemplate(fs.readFileSync(envExamplePath, 'utf-8')) : [];
-
-    const keyEntries = templateEntries.length > 0
-      ? templateEntries
-      : Object.keys(values).sort().map((key) => ({ key, defaultValue: '' }));
-
-    const lines = keyEntries.map((entry) => {
-      const value = Object.prototype.hasOwnProperty.call(values, entry.key)
-        ? String(values[entry.key])
-        : (currentMap[entry.key] || entry.defaultValue || '');
-      return `${entry.key}=${value}`;
-    });
-
-    fs.writeFileSync(envPath, `${lines.join('\n')}\n`, 'utf-8');
-    res.json({ success: true, envPath });
-  } catch (err) {
-    res.status(400).json({ success: false, error: err.message });
-  }
-});
-
-/**
  * GET /api/providers
  * Returns which AI providers are available based on env vars.
  */

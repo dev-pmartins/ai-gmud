@@ -2,16 +2,19 @@
 
 A CLI toolkit that uses AI (Claude or GitHub Copilot) to generate **GMUD** (Gerenciamento de Mudança Urgente e Dimensionada) documents during deploy processes.
 
+> **Analyzed repositories are strictly read-only.** deploy-helper never modifies, creates, or deletes files in external repositories. It only reads the git diff and generates a report.
+
 ## Features
 
 - 🔍 **Branch comparison** – Analyze differences between any two branches (default: `homolog` → `master`)
 - 🗃️ **Smart classification** – Automatically detects:
-  - New/changed environment variables
+  - New/changed environment variables (reported in the GMUD, never modified)
   - Database migrations
   - Database seeders
   - Dependency/vulnerability risk files
   - Critical infrastructure changes (Docker, CI/CD, Kubernetes, Terraform, etc.)
 - 🤖 **AI-powered GMUD generation** – Uses Claude (Anthropic) or GitHub Copilot (GitHub Models) to produce a complete change-management document
+- 🌐 **Web GUI** – Visual interface to select repository, branches, and agents (`deploy-helper gui`)
 - 📄 **Markdown output** – Save directly to a file or print to stdout
 
 ## Installation
@@ -36,6 +39,25 @@ Choose **one** of the following AI providers:
 | GitHub Copilot (GitHub Models) | `GITHUB_TOKEN` |
 
 ## Usage
+
+### Launch the web GUI
+
+```bash
+# Open the GUI in your browser (default port 3131)
+deploy-helper gui
+
+# Or using npx (without global install)
+npx deploy-helper gui
+
+# Pre-fill a repository path
+deploy-helper gui --repo /path/to/your/repo
+
+# Use a custom port
+deploy-helper gui --port 8080
+
+# Start without opening the browser automatically
+deploy-helper gui --no-open
+```
 
 ### Generate a GMUD document
 
@@ -72,6 +94,12 @@ deploy-helper analyze --json
 ### All options
 
 ```
+deploy-helper gui [options]
+
+  -p, --port <number>      Port for the web server (default: 3131)
+  -r, --repo <path>        Pre-fill repository path in the GUI
+  --no-open                Do not open the browser automatically
+
 deploy-helper gmud [options]
 
   -f, --from <branch>      Source branch (default: "homolog")

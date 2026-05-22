@@ -1,0 +1,3 @@
+# deploy-helper cache directory
+# Contains per-repository cached settings (stack detection, agent recommendations, etc.)
+# Auto-managed by deploy-helper — do not edit manually
