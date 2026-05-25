@@ -3,10 +3,12 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { analyzeBranches } = require('./analyzer');
 const { generateGmud } = require('./gmud');
 const { isCliAvailable, generateWithClaudeCli } = require('./ai/claude-cli');
 const { detectStack, recommendAgents } = require('./detector');
+const { logger } = require('./logger');
 const {
   readCache,
   writeCache,
@@ -17,7 +19,7 @@ const {
 } = require('./cache');
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '25mb' }));
 app.use(express.static(path.join(__dirname, 'gui')));
 
 const APP_ROOT = path.resolve(__dirname, '..');
@@ -264,10 +266,25 @@ app.get('/api/providers', (req, res) => {
  * Generate GMUD via SSE streaming.
  */
 app.post('/api/gmud/stream', async (req, res) => {
+  const requestId = crypto.randomUUID();
   try {
     const { analysis, provider, model, agentType, maxTokens, stack } = req.body;
 
-    if (!analysis) return res.status(400).json({ success: false, error: 'analysis is required' });
+    if (!analysis) {
+      logger.warn('GMUD stream rejected: missing analysis', { requestId });
+      return res.status(400).json({ success: false, error: 'analysis is required', requestId });
+    }
+
+    logger.info('GMUD stream request started', {
+      requestId,
+      provider: provider || 'claude',
+      model: model || null,
+      agentType,
+      hasStack: !!stack,
+      totalFiles: analysis?.totalFiles,
+      fromBranch: analysis?.fromBranch,
+      toBranch: analysis?.toBranch,
+    });
 
     // Set SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
@@ -294,6 +311,12 @@ app.post('/api/gmud/stream', async (req, res) => {
       }
     }
 
+    logger.info('GMUD stream provider resolved', {
+      requestId,
+      requestedProvider: provider || 'claude',
+      effectiveProvider,
+    });
+
     send('start', { message: 'Starting GMUD generation...' });
 
     let fullContent = '';
@@ -302,7 +325,9 @@ app.post('/api/gmud/stream', async (req, res) => {
 
     if (effectiveProvider === 'claude-cli') {
       const { buildAgentPrompt } = require('./agents');
-      const prompt = buildAgentPrompt(analysis, stack, agentType);
+      // Some old clients may not send stack in gmud payload.
+      const promptStack = stack || { language: 'generic', framework: 'generic', confidence: 'low' };
+      const prompt = buildAgentPrompt(analysis, promptStack, agentType);
       await generateWithClaudeCli(prompt, { model, onChunk });
     } else {
       await generateGmud(analysis, {
@@ -315,11 +340,26 @@ app.post('/api/gmud/stream', async (req, res) => {
       });
     }
 
+    logger.info('GMUD stream request completed', {
+      requestId,
+      effectiveProvider,
+      outputChars: fullContent.length,
+    });
+
     send('done', { content: fullContent });
     res.end();
   } catch (err) {
+    logger.error('GMUD stream request failed', {
+      requestId,
+      error: err.message,
+      stack: err.stack,
+    });
     try {
-      res.write(`event: error\ndata: ${JSON.stringify({ error: err.message })}\n\n`);
+      const payload = { error: err.message, requestId };
+      if (!res.headersSent) {
+        return res.status(500).json({ success: false, ...payload });
+      }
+      res.write(`event: error\ndata: ${JSON.stringify(payload)}\n\n`);
     } catch { /* ignore write errors */ }
     res.end();
   }
@@ -368,6 +408,24 @@ app.use('/api', (req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  if (err && (err.type === 'entity.too.large' || err.status === 413)) {
+    logger.warn('Request entity too large', {
+      method: req.method,
+      path: req.originalUrl,
+      limit: '25mb',
+    });
+    return res.status(413).json({
+      success: false,
+      error: 'Request entity too large. O diff enviado para gerar GMUD excedeu o limite; execute novamente após reduzir o payload.',
+    });
+  }
+
+  logger.error('Unhandled API error', {
+    method: req.method,
+    path: req.originalUrl,
+    error: err.message,
+    stack: err.stack,
+  });
   if (req.path && req.path.startsWith('/api/')) {
     return res.status(500).json({ success: false, error: err.message || 'Internal server error' });
   }
@@ -382,6 +440,7 @@ app.use((err, req, res, next) => {
 function startServer(port = 3131) {
   return new Promise((resolve) => {
     const server = app.listen(port, '127.0.0.1', () => {
+      logger.info('GUI server started', { port, logFile: logger.logFile });
       resolve(server);
     });
   });

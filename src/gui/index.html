@@ -1770,6 +1770,16 @@ function switchGmudTab(name) {
   });
 }
 
+function buildGmudAnalysisPayload() {
+  const MAX_DIFF_CHARS = 12000;
+  const rawDiff = String(state.diff || '');
+  const diff = rawDiff.length > MAX_DIFF_CHARS
+    ? `${rawDiff.slice(0, MAX_DIFF_CHARS)}\n...(truncated at client)`
+    : rawDiff;
+
+  return { ...state.analysis, diff };
+}
+
 async function generateGmud() {
   if (!state.analysis) { showToast('Execute a análise primeiro', 'error'); return; }
   if (state.selectedAgents.length === 0) { showToast('Selecione ao menos um agente', 'error'); return; }
@@ -1795,7 +1805,7 @@ async function generateGmud() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        analysis: { ...state.analysis, diff: state.diff },
+        analysis: buildGmudAnalysisPayload(),
         provider, model,
         agentType: state.selectedAgents.length === 1 ? state.selectedAgents[0] : state.selectedAgents,
         stack: state.stack,
@@ -1803,8 +1813,16 @@ async function generateGmud() {
     });
 
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.error || 'Falha ao iniciar geração do GMUD');
+      let errMessage = 'Falha ao iniciar geração do GMUD';
+      const ct = res.headers.get('content-type') || '';
+      if (ct.includes('application/json')) {
+        const err = await res.json();
+        errMessage = err.error || errMessage;
+      } else {
+        const raw = (await res.text()).slice(0, 160).replace(/\s+/g, ' ');
+        if (raw) errMessage = `${errMessage} (${res.status}): ${raw}`;
+      }
+      throw new Error(errMessage);
     }
 
     const reader = res.body.getReader();

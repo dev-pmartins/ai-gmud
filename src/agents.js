@@ -40,11 +40,17 @@ function loadAgent(language, framework, agentType) {
  * @returns {string}
  */
 function buildAgentPrompt(analysis, stack, agentType) {
+  const safeStack = {
+    language: stack?.language || 'generic',
+    framework: stack?.framework || 'generic',
+    confidence: stack?.confidence || 'low',
+  };
+
   const types = Array.isArray(agentType) ? agentType : [agentType];
 
   const prompts = types.map((type) => {
-    const agent = loadAgent(stack.language || 'generic', stack.framework || 'generic', type);
-    return { type, prompt: agent.buildPrompt(analysis, stack) };
+    const agent = loadAgent(safeStack.language, safeStack.framework, type);
+    return { type, prompt: agent.buildPrompt(analysis, safeStack) };
   });
 
   if (prompts.length === 1) return prompts[0].prompt;
